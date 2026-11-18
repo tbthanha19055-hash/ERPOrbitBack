@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function activeUser() {
+      return signedIn() && userProfile().status == 'active';
+    }
+
+    function sameTenant(tenantId) {
+      return activeUser() && userProfile().tenantId == tenantId;
+    }
+
+    function sameTenantData(data) {
+      return sameTenant(data.tenantId);
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Tenant documents are read-only from clients. The backend never writes here.
+    match /tenants/{tenantId} {
+      allow read: if sameTenant(tenantId);
+      allow write: if false;
+    }
+
+    match /roles/{roleId} {
+      allow read: if sameTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+
+    match /clients/{id} {
+      allow read: if sameTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+
+    match /products/{id} {
+      allow read: if sameTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+
+    match /orders/{id} {
+      allow read: if sameTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+
+    match /payments/{id} {
+      allow read: if sameTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+
+    match /counters/{id} {
+      allow read, write: if false;
+    }
+
+    match /idempotency/{id} {
+      allow read, write: if false;
+    }
+
+    match /auditLogs/{id} {
+      allow read: if sameTenant(resource.data.tenantId);
+      allow write: if false;
+    }
+  }
+}
